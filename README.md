@@ -1,6 +1,5 @@
 ## 📄 `README.md`
 
-```markdown
 # DronePropB - Análise de Vibração e Classificação de Hélices
 
 Pipeline de processamento de sinais e extração de características de vibração de drones para classificação de hélices saudáveis e defeituosas.
