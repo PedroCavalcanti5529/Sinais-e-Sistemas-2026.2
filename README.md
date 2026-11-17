@@ -30,7 +30,7 @@ Pipeline de processamento de sinais e extração de características de vibraç�
    pip install -r requirements.txt
    ```
 
-4. Certifique-se de que os dados do dataset `DronePropB Ground Testing Dataset` está na raiz do projeto em "dataset".
+4. Faça o download dos dados do dataset [DronePropB Ground Testing Dataset](https://data.mendeley.com/datasets/xkvfjmm8zg/1), extraia tudo do .zip, crie a pasta `./dataset` na raiz do projeto, e coloque todos os arquivos dentro dela.
 
 ## Como executar
 
