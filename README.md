@@ -13,16 +13,19 @@ Pipeline de processamento de sinais e extração de características de vibraç�
 
 1. Clone o repositório:
    ```bash
-   git clone <url-do-repositorio>
-   cd ML-Sinais
+   git clone https://github.com/PedroCavalcanti5529/Sinais-e-Sistemas-2026.2.git
+   cd Sinais-e-Sistemas-2026.2
    ```
 
 2. Crie e ative um ambiente virtual:
+   * Linux/macOS
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # Linux/macOS
-   # ou
-   .venv\Scripts\activate     # Windows
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+   * Windows
+   ```bash
+   .venv\Scripts\activate
    ```
 
 3. Instale as dependências:
@@ -39,25 +42,25 @@ O pipeline é dividido em 4 etapas sequenciais. Execute na ordem:
 ### Etapa 3.1 — Preparação e Janelamento
 Lê os arquivos `.mat`, remove duplicatas, verifica a qualidade do sinal e gera as janelas.
 ```bash
-python preprocess3-1.py
+python3 preprocess3_1.py
 ```
 
 ### Etapa 3.2 — Extração de Características no Tempo
 Calcula as 8 features de tempo (média, RMS, std, pico, crista, assimetria, curtose) e gera as tabelas de efeito.
 ```bash
-python preprocess3-2.py
+python3 preprocess3_2.py
 ```
 
 ### Etapa 3.3 — Extração de Características na Frequência
 Aplica FFT para extrair entropia, centroide, largura de banda, magnitude dominante e potência em bandas.
 ```bash
-python preprocess3-3.py
+python3 preprocess3_3.py
 ```
 
 ### Etapa 3.4 — Comparação e Seleção de Features
 Compara os domínios do tempo e frequência, analisa redundância e seleciona o conjunto final.
 ```bash
-python preprocess3-4.py
+python3 preprocess3_4.py
 ```
 
 ## Resultados
