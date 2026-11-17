@@ -1,25 +1,20 @@
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.patches import Patch
 
-OUT_DIR = Path("/home/pedro/ML-Sinais/outputs")
+from config import OUT_DIR, AXES, UNITS, REP_PAR, PAR_SP, PAR_CANAL as CANAL_RELATORIO
+
+
 FIG_DIR = OUT_DIR / "figuras"
-AXES = {"ACC": ["ch"], "IMU": ["x", "y", "z"]}
-UNITS = {"ACC": "g (assumido)", "IMU": "m/s²"}
 
 DETALHADO = False       # True: gera também as figuras auxiliares
-CANAL_RELATORIO = 1     # canal usado nas figuras por velocidade e no par do gráfico temporal
-PAR_SP = 1              # velocidade do par saudável x defeituoso
 PLOT_HEALTHY = None     # ex.: "F0_SV0_SP1_C1_R1"; None = escolhe o registro representativo
 PLOT_FAULTY = None      # ex.: "F1_SV3_SP1_C1";    None = escolhe o registro representativo
 ZOOM_S = 0.05
 CHUNK = 500             # janelas processadas por vez (limita o uso de memória)
 
-FEATS = ["media", "rms", "std", "pico_abs", "pico_pico", "crista",
-         "assimetria", "curtose"]
 MAIN4 = ["rms", "std", "pico_abs", "crista"]
 CLASS_COLORS = {"saudável": "tab:blue", "defeituoso": "tab:red"}
 
@@ -57,7 +52,7 @@ def plot_time_comparison(sensor, par):
             n = int(ZOOM_S * fs)
             ax[2 * a, j].plot(t, x, lw=0.4, color=CLASS_COLORS[lab])
             ax[2 * a, j].set_title(f"{lab} – {rec} – eixo {name}\n"
-                                   f"janela de 1 s (média {mu:.3g} removida)", fontsize=9)
+                                   f"janela de {x.size / fs:.0f} s (média {mu:.3g} removida)", fontsize=9)
             ax[2 * a + 1, j].plot(t[:n], x[:n], lw=0.8, color=CLASS_COLORS[lab])
             ax[2 * a + 1, j].set_title(f"zoom {ZOOM_S*1000:.0f} ms", fontsize=9)
             for r in (2 * a, 2 * a + 1):
@@ -84,7 +79,7 @@ def plot_boxplots(df, sensor, detalhado=False):
                 patch.set_facecolor(c); patch.set_alpha(0.5)
             a.set_title(f)
             a.set_ylabel("adimensional" if f == "crista" else UNITS[sensor])
-        fig.suptitle(f"{sensor} eixo {ax_name}: classe binária (todas as velocidades e canais)")
+        fig.suptitle(f"{sensor} eixo {ax_name}: classe binária (todas as velocidades e canais, R{REP_PAR})")
         fig.tight_layout()
         fig.savefig(FIG_DIR / f"boxplot_classe_{sensor}_{ax_name}.png", dpi=150)
         plt.close(fig)
@@ -149,25 +144,60 @@ def plot_by_speed(df, sensor, feats=MAIN4):
                 a.set_ylabel("adimensional" if f == "crista" else UNITS[sensor])
             axs[0].legend(handles=[Patch(color=c, alpha=0.5, label=l)
                                    for l, c in CLASS_COLORS.items()])
-            fig.suptitle(f"{sensor} eixo {ax_name}, canal C{ch}: por velocidade")
+            fig.suptitle(f"{sensor} eixo {ax_name}, canal C{ch}: por velocidade (R{REP_PAR})")
             fig.tight_layout()
             fig.savefig(FIG_DIR / f"boxplot_vel_{sensor}_{ax_name}_C{ch}.png", dpi=150)
             plt.close(fig)
 
 
-def plot_corr(df, sensor):
+def plot_dc_effect(df, sensor):
+    """Item 3.2.4: relação RMS × potência e efeito da componente média.
+    (a) RMS² vs média²+std² (identidade P = mu² + sigma²);
+    (b) fração da potência na componente média, mu²/P, por velocidade e classe;
+    (c) RMS vs std: a distância até a diagonal é o efeito do offset."""
     for ax_name in AXES[sensor]:
-        C = df[df.eixo == ax_name][FEATS].corr(method="spearman")
-        fig, a = plt.subplots(figsize=(7, 6))
-        im = a.imshow(C, vmin=-1, vmax=1, cmap="coolwarm")
-        a.set_xticks(range(len(FEATS)), FEATS, rotation=90)
-        a.set_yticks(range(len(FEATS)), FEATS)
-        for i in range(len(FEATS)):
-            for j in range(len(FEATS)):
-                a.text(j, i, f"{C.iloc[i, j]:.2f}", ha="center", va="center", fontsize=6)
-        fig.colorbar(im)
-        a.set_title(f"Correlação de Spearman – {sensor} eixo {ax_name}")
+        d = df[df.eixo == ax_name]
+        fig, axs = plt.subplots(1, 3, figsize=(15, 4.2))
+
+        lhs, rhs = d["rms"] ** 2, d["media"] ** 2 + d["std"] ** 2
+        axs[0].scatter(rhs, lhs, s=4, alpha=0.4)
+        lim = [0, max(lhs.max(), rhs.max())]
+        axs[0].plot(lim, lim, "k--", lw=0.8, label="y = x")
+        axs[0].set_xlabel(f"média² + std²  [({UNITS[sensor]})²]")
+        axs[0].set_ylabel(f"RMS² = potência média  [({UNITS[sensor]})²]")
+        axs[0].set_title("(a) identidade P = μ² + σ²")
+        axs[0].legend()
+
+        frac = d["media"] ** 2 / d["potencia"]
+        sps = sorted(d.speed.unique())
+        pos, data, cols = [], [], []
+        for i, sp in enumerate(sps):
+            for j, c in enumerate(CLASS_COLORS):
+                pos.append(i * 3 + j)
+                data.append(frac[(d.speed == sp) & (d.classe == c)].values)
+                cols.append(CLASS_COLORS[c])
+        bp = axs[1].boxplot(data, positions=pos, patch_artist=True, widths=0.8,
+                            showfliers=False)
+        for patch, col in zip(bp["boxes"], cols):
+            patch.set_facecolor(col); patch.set_alpha(0.5)
+        axs[1].set_xticks([i * 3 + 0.5 for i in range(len(sps))],
+                          [f"SP{sp}" for sp in sps])
+        axs[1].set_ylabel("μ² / P  (fração da potência no DC)")
+        axs[1].set_title("(b) peso da componente média")
+        axs[1].legend(handles=[Patch(color=c, alpha=0.5, label=l)
+                               for l, c in CLASS_COLORS.items()])
+
+        for c, col in CLASS_COLORS.items():
+            q = d[d.classe == c]
+            axs[2].scatter(q["std"], q["rms"], s=4, alpha=0.4, color=col, label=c)
+        lim = [0, max(d["rms"].max(), d["std"].max())]
+        axs[2].plot(lim, lim, "k--", lw=0.8)
+        axs[2].set_xlabel(f"std [{UNITS[sensor]}]")
+        axs[2].set_ylabel(f"RMS [{UNITS[sensor]}]")
+        axs[2].set_title("(c) RMS × std (acima da diagonal = offset)")
+        axs[2].legend()
+
+        fig.suptitle(f"{sensor} eixo {ax_name}: RMS, potência e componente média (R{REP_PAR})")
         fig.tight_layout()
-        fig.savefig(FIG_DIR / f"correlacao_{sensor}_{ax_name}.png", dpi=150)
+        fig.savefig(FIG_DIR / f"efeito_dc_{sensor}_{ax_name}.png", dpi=150)
         plt.close(fig)
-        C.round(3).to_csv(OUT_DIR / f"correlacao_{sensor}_{ax_name}.csv")
